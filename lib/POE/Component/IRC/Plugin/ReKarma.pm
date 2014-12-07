@@ -73,7 +73,7 @@ sub S_public {
     Encode::_utf8_on( $text );
 
     # allow optionally addressing the bot
-    $text =~ s/\A$my_own_nick\:\s*//;
+    $text =~ s/\A$my_own_nick[:,\s]*//;
 
     my $what = '';
     if ( $text =~ $karma_increase_re ) {
