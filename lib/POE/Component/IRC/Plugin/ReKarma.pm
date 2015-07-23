@@ -15,7 +15,8 @@ use constant {
             viva
             \s+
         )
-        (.*)
+        (.*?)
+        \s*
         \z
     )xi,
 
@@ -25,7 +26,8 @@ use constant {
             abbasso
             \s+
         )
-        (.*)
+        (.*?)
+        \s*
         \z
     )xi,
 };
