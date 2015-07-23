@@ -60,11 +60,12 @@ sub S_public {
 
     my $channel = ${ +shift }->[0];
     my $lc_channel = lc $channel;
+    (my $pathsafe_channel = $lc_channel) =~ s{/}{_}g;
     my $channel_settings = $self->{channel_settings}{$lc_channel};
 
     my $karma_increase_re = qr(@{[ $channel_settings->{karma_increase_re} // KARMA_INCREASE_RE_DEFAULT ]});
     my $karma_decrease_re = qr(@{[ $channel_settings->{karma_decrease_re} // KARMA_DECREASE_RE_DEFAULT ]});
-    my $status_file = $channel_settings->{status_file} // $ENV{HOME} . '/.pocoirc-rekarma-status-' . $lc_channel;
+    my $status_file = $channel_settings->{status_file} // $ENV{HOME} . '/.pocoirc-rekarma-status-' . $pathsafe_channel;
     my $karma = ( do $status_file ) // {};
 
     my $message = shift;
