@@ -30,6 +30,18 @@ use constant {
         \s*
         \z
     )xi,
+
+    KARMA_STATS_RE_DEFAULT => qr(
+        \A
+        (?:
+            karma
+            \s*
+            (?:(?:per|di|of)\s*)?
+        )
+        (.*?)?
+        \s*
+        \z
+    )xi,
 };
 
 sub new {
@@ -67,6 +79,7 @@ sub S_public {
 
     my $karma_increase_re = qr(@{[ $channel_settings->{karma_increase_re} // KARMA_INCREASE_RE_DEFAULT ]});
     my $karma_decrease_re = qr(@{[ $channel_settings->{karma_decrease_re} // KARMA_DECREASE_RE_DEFAULT ]});
+    my $karma_stats_re    = qr(@{[ $channel_settings->{karma_stats_re}    // KARMA_STATS_RE_DEFAULT    ]});
     my $status_file = $channel_settings->{status_file} // $ENV{HOME} . '/.pocoirc-rekarma-status-' . $pathsafe_channel;
     my $karma = ( do $status_file ) // {};
 
@@ -78,27 +91,56 @@ sub S_public {
     # allow optionally addressing the bot
     $text =~ s/\A$my_own_nick[:,\s]*//;
 
+    my $karma_changed = 0;
     my $what = '';
     if ( $text =~ $karma_increase_re ) {
         warn "increasing ($lc_channel) karma for <$1> :)\n" if $channel_settings->{debug};
         $what = $1;
         ($karma->{$what} //= 0)++;
+        $karma_changed = 1;
     } elsif ( $text =~ $karma_decrease_re ) {
         warn "decreasing ($lc_channel) karma for <$1> :(\n" if $channel_settings->{debug};
         $what = $1;
         ($karma->{$what} //= 0)--;
+        $karma_changed = 1;
+    } elsif ( $text =~ $karma_stats_re ) {
+        $what = $1;
+        warn "requesting karma stats for <@{[ $what // '(nothing/everything)' ]}>\n" if $channel_settings->{debug};
+
+        if ( $what ){
+            if ( exists $karma->{$what} ){
+                $irc->yield(
+                    notice => $channel,
+                    "karma for <$what> is $karma->{$what}",
+                );
+            } else {
+                $irc->yield(
+                    notice => $channel,
+                    "there is no karma for <$what> yet!",
+                );
+            }
+        } else {
+            my @top_keys = grep defined, ( sort { $karma->{$b} <=> $karma->{$a} } keys %$karma )[0..5];
+
+            $irc->yield(
+                notice => $channel,
+                "karma for <$_> is $karma->{$_}",
+            ) for @top_keys;
+        }
     } else {
         return PCI_EAT_NONE;
     }
 
-    open my $fh, '>', $status_file;
-    print $fh Dumper( $karma );
-    $fh->close;
+    if ( $karma_changed ){
+        open my $fh, '>', $status_file;
+        print $fh Dumper( $karma );
+        $fh->close;
 
-    $irc->yield(
-        notice => $channel,
-        "karma for <$what> is now $karma->{$what}",
-    );
+        $irc->yield(
+            notice => $channel,
+            "karma for <$what> is now $karma->{$what}",
+        );
+    }
 
     return PCI_EAT_ALL;
 }
