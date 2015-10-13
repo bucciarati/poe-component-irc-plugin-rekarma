@@ -12,7 +12,7 @@ use constant {
     KARMA_INCREASE_RE_DEFAULT => qr(
         \A
         (?:
-            viva
+            (?:viva|w)
             \s+
         )
         (.*?)
