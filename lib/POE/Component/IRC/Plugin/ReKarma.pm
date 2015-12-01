@@ -91,18 +91,33 @@ sub S_public {
     # allow optionally addressing the bot
     $text =~ s/\A$my_own_nick[:,\s]*//;
 
-    my $karma_changed = 0;
+    my $new_karma = undef;
+
+    my $karma_change_callback = sub {
+        my ($original_key, $value_change_callback) = @_;
+        my $normalized_key = lc $original_key;
+
+        my ($storage_key, @key_is_ambiguous) = grep { $normalized_key eq lc $_ } keys %$karma;
+        if (@key_is_ambiguous) {
+            warn "key <$original_key> is ambiguous (@{[ scalar @key_is_ambiguous ]} extra matches)\n";
+        }
+
+        # when we don't have any matches, we make the first mention be the canonical one
+        $storage_key //= $original_key;
+
+        $value_change_callback->($storage_key);
+        $new_karma = $karma->{$storage_key};
+    };
+
     my $what = '';
     if ( $text =~ $karma_increase_re ) {
         warn "increasing ($lc_channel) karma for <$1> :)\n" if $channel_settings->{debug};
         $what = $1;
-        ($karma->{$what} //= 0)++;
-        $karma_changed = 1;
+        $karma_change_callback->($what, sub { ($karma->{$_[0]} //= 0)++ });
     } elsif ( $text =~ $karma_decrease_re ) {
         warn "decreasing ($lc_channel) karma for <$1> :(\n" if $channel_settings->{debug};
         $what = $1;
-        ($karma->{$what} //= 0)--;
-        $karma_changed = 1;
+        $karma_change_callback->($what, sub { ($karma->{$_[0]} //= 0)-- });
     } elsif ( $text =~ $karma_stats_re ) {
         $what = $1;
         warn "requesting karma stats for <@{[ $what // '(nothing/everything)' ]}>\n" if $channel_settings->{debug};
@@ -131,14 +146,14 @@ sub S_public {
         return PCI_EAT_NONE;
     }
 
-    if ( $karma_changed ){
+    if ( defined $new_karma ){
         open my $fh, '>', $status_file;
         print $fh Dumper( $karma );
         $fh->close;
 
         $irc->yield(
             notice => $channel,
-            "karma for <$what> is now $karma->{$what}",
+            "karma for <$what> is now $new_karma",
         );
     }
 
