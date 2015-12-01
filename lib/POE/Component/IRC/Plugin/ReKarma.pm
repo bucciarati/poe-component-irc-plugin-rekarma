@@ -141,6 +141,18 @@ sub S_public {
                 notice => $channel,
                 "karma for <$_> is $karma->{$_}",
             ) for @top_keys;
+
+            $irc->yield(
+                notice => $channel,
+                "[...]",
+            );
+
+            my @bottom_keys = grep defined, ( sort { $karma->{$a} <=> $karma->{$b} } keys %$karma )[0..5];
+
+            $irc->yield(
+                notice => $channel,
+                "karma for <$_> is $karma->{$_}",
+            ) for reverse @bottom_keys;
         }
     } else {
         return PCI_EAT_NONE;
