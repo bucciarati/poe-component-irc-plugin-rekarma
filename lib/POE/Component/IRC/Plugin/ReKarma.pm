@@ -12,7 +12,10 @@ use constant {
     KARMA_INCREASE_RE_DEFAULT => qr(
         \A
         (?:
-            (?:viva|w)
+            \s*
+        )
+        (?:
+            (?:(?:ev)?viva|w)
             \s+
         )
         (.*?)
@@ -36,7 +39,7 @@ use constant {
         (?:
             karma
             \s*
-            (?:(?:per|di|of)\s*)?
+            (?:(?:per|di|of|for)\s*)?
         )
         (.*?)?
         \s*
