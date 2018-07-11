@@ -39,7 +39,7 @@ use constant {
         (?:
             karma
             \s*
-            (?:(?:per|di|of|for)\s*)?
+            (?:(?:per|di|of|for)\b\s*)?
         )
         (.*?)?
         \s*
