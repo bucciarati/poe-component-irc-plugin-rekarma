@@ -126,12 +126,19 @@ sub S_public {
         warn "requesting karma stats for <@{[ $what // '(nothing/everything)' ]}>\n" if $channel_settings->{debug};
 
         if ( $what ){
-            if ( exists $karma->{$what} ){
+            my $lc_what = lc $what;
+            my $karma_value;
+            while ( my ($k, $v) = each %$karma ){
+                next unless lc $k eq $lc_what;
+                $karma_value = $v;
                 $irc->yield(
                     notice => $channel,
-                    "karma for <$what> is $karma->{$what}",
+                    "karma for <$what> is $karma_value",
                 );
-            } else {
+
+                last;
+            }
+            if ( !$karma_value ){
                 $irc->yield(
                     notice => $channel,
                     "there is no karma for <$what> yet!",
