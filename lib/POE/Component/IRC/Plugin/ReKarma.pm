@@ -115,7 +115,7 @@ sub DBI_select_all {
 
 sub DBI_close {
     my $dbh = shift;
-    my $res = $dbh->disconnect() or warn "DBI::errstr";
+    my $res = $dbh->disconnect() or warn "$DBI::errstr";
     return $res
 }
 
