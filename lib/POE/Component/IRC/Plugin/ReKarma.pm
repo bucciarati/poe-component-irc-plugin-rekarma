@@ -238,7 +238,7 @@ sub S_public {
             );
 
             %karma = DBI_select_all($dbh, "ASC", $num_records);
-            my @bottom_keys = sort { $karma{$a} > $karma{$b} } keys %karma;;
+            my @bottom_keys = sort { $karma{$a} <= $karma{$b} } keys %karma;;
 
             $irc->yield(
                 notice => $channel,
@@ -267,7 +267,9 @@ sub S_public {
 
 sub DESTROY {
     my $self = shift;
-    DBI_close($self->{dbh});
+    if (defined $self->{dbh}) {
+        DBI_close($self->{dbh});
+    }
 }
 
 1;
