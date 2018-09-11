@@ -61,7 +61,9 @@ sub DBI_init {
     }) or die "Can't connect to the database: $DBI::errstr";
 
     my $sth = $dbh->prepare(q{
-        CREATE TABLE IF NOT EXISTS Karmas (Name String, Score int)
+        CREATE TABLE IF NOT EXISTS "Karmas" ( 
+        "Name" TEXT NOT NULL CONSTRAINT "PK_Karmas" PRIMARY KEY, 
+        "Score" INTEGER NOT NULL );
     });
 
     $sth->execute or die "Can't create Karmas table: $DBI::errstr";
@@ -220,26 +222,35 @@ sub S_public {
             ); 
         } else {
             my $num_records = 6;
-            my %karma = DBI_select_all($dbh, "DESC", $num_records);
-            my @top_keys = sort { $karma{$a} <= $karma{$b} } keys %karma;
+            my %top_karma = DBI_select_all($dbh, "DESC", $num_records);
+            my @top_keys = sort { %top_karma{$a} <=> %top_karma{$b} } keys %top_karma;
 
             $irc->yield(
                 notice => $channel,
-                "karma for <$_> is " . %karma{$_},
-            ) for @top_keys;
+                "karma for <$_> is " . %top_karma{$_},
+            ) for reverse @top_keys;
 
-            $irc->yield(
-                notice => $channel,
-                "[...]",
-            );
+            my %bottom_karma = DBI_select_all($dbh, "ASC", $num_records);
+            # Avoid printing duplicates when we have less than 2 * $num_records
+            # entries in the database.
+            foreach my $name (keys %bottom_karma) {
+                if (exists($top_karma{$name})) {
+                    delete %bottom_karma{$name};
+                }
+            }
 
-            %karma = DBI_select_all($dbh, "ASC", $num_records);
-            my @bottom_keys = sort { $karma{$a} <= $karma{$b} } keys %karma;
+            my @bottom_keys = sort { %bottom_karma{$a} <=> %bottom_karma{$b} } keys %bottom_karma;
+            if (@bottom_keys) {
+                $irc->yield(
+                    notice => $channel,
+                    "[...]",
+                );
 
-            $irc->yield(
-                notice => $channel,
-                "karma for <$_> is " . %karma{$_},
-            ) for @bottom_keys;
+                $irc->yield(
+                    notice => $channel,
+                    "karma for <$_> is " . %bottom_karma{$_},
+                ) for @bottom_keys;
+            }
         }
     } else {
         return PCI_EAT_NONE;
