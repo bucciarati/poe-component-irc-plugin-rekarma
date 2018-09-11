@@ -249,7 +249,7 @@ sub S_public {
                 $irc->yield(
                     notice => $channel,
                     "karma for <$_> is " . %bottom_karma{$_},
-                ) for @bottom_keys;
+                ) for reverse @bottom_keys;
             }
         }
     } else {
