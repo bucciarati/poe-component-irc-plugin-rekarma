@@ -49,11 +49,10 @@ use constant {
 
 use DBI;
 
-# TODO these should be moved to a module. But where?
+# TODO(gmodena) these should be moved to a module. But where?
 sub DBI_init {
     my $dbname = shift;
 
-    # TODO: maybe connect_cached?
     my $dbh = DBI->connect("dbi:SQLite:dbname=$dbname","","", {
         RaiseError => 1,
         PrintError => 1,
@@ -86,9 +85,6 @@ sub DBI_upsert_score {
 
 sub DBI_select_score {
     my ($dbh, $what) = @_;
-
-    # TODO(gmodena): we should lowercase records at insertion time (and set constraints) 
-    # in the bulk-load python script.
     my $sth = $dbh->prepare(q{
         SELECT Score FROM Karmas WHERE Name = ?;
         });
@@ -146,7 +142,7 @@ sub get_or_create_dbh {
     if (! defined $self->{dbh}) {
         $self->{dbh} = DBI_init($dbname);
     } elsif ($self->{dbh}->sqlite_db_filename ne $dbname) {
-        warn "Replacing datbase " . $self->{dbh}->sqlite_db_filename . " with " . $dbname;
+        warn "Replacing database " . $self->{dbh}->sqlite_db_filename . " with " . $dbname;
         $self->{dbh}->disconnect;
         $self->{dbh} = DBI_init($dbname); 
     }
@@ -238,7 +234,7 @@ sub S_public {
             );
 
             %karma = DBI_select_all($dbh, "ASC", $num_records);
-            my @bottom_keys = sort { $karma{$a} <= $karma{$b} } keys %karma;;
+            my @bottom_keys = sort { $karma{$a} <= $karma{$b} } keys %karma;
 
             $irc->yield(
                 notice => $channel,
@@ -267,7 +263,7 @@ sub S_public {
 
 sub DESTROY {
     my $self = shift;
-    if (defined $self->{dbh}) {
+    if ( defined $self->{dbh} ) {
         DBI_close($self->{dbh});
     }
 }
