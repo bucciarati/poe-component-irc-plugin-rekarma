@@ -6,7 +6,7 @@ use warnings;
 use POE::Component::IRC;
 use POE::Component::IRC::Plugin qw( :ALL );
 
-use Data::Dumper;
+use JSON::XS;
 
 use constant {
     KARMA_INCREASE_RE_DEFAULT => qr(
@@ -67,6 +67,35 @@ sub PCI_unregister {
     return 1;
 }
 
+my $karma = {};
+sub _karma_load_from_file {
+    my ($path) = @_;
+
+    my $encoded_karma;
+    open my $fh, '<', $path or return;
+    { local $/; $encoded_karma = <$fh> }
+    $fh->close;
+
+    $karma = JSON::XS::decode_json($encoded_karma);
+
+    return;
+}
+
+sub _karma_store_to_file {
+    my ($path) = @_;
+
+    open my $fh, '>', $path or do {
+        warn "Did not open <$path>: $!\n";
+        return;
+    };
+    my $encoded_karma = JSON::XS::encode_json($karma);
+    # warn "String size: @{[ bytes::length $encoded_karma ]} bytes\n";
+    $fh->write($encoded_karma) or warn "Did not write <$path>: $!\n";
+    $fh->close;
+
+    return;
+}
+
 sub S_public {
     my ($self, $irc) = (shift, shift);
 
@@ -83,13 +112,11 @@ sub S_public {
     my $karma_increase_re = qr(@{[ $channel_settings->{karma_increase_re} // KARMA_INCREASE_RE_DEFAULT ]});
     my $karma_decrease_re = qr(@{[ $channel_settings->{karma_decrease_re} // KARMA_DECREASE_RE_DEFAULT ]});
     my $karma_stats_re    = qr(@{[ $channel_settings->{karma_stats_re}    // KARMA_STATS_RE_DEFAULT    ]});
-    my $status_file = $channel_settings->{status_file} // $ENV{HOME} . '/.pocoirc-rekarma-status-' . $pathsafe_channel;
-    my $karma = ( do $status_file ) // {};
+    my $status_file = $channel_settings->{status_file} // $ENV{HOME} . '/.pocoirc-rekarma-status-' . $pathsafe_channel . '.json';
 
     my $message = shift;
 
-    my $text = $$message;
-    Encode::_utf8_on( $text );
+    my $text = Encode::decode_utf8($$message);
 
     # allow optionally addressing the bot
     $text =~ s/\A$my_own_nick[:,\s]*//;
@@ -99,6 +126,8 @@ sub S_public {
     my $karma_change_callback = sub {
         my ($original_key, $value_change_callback) = @_;
         my $normalized_key = lc $original_key;
+
+        _karma_load_from_file($status_file);
 
         my ($storage_key, @key_is_ambiguous) = grep { $normalized_key eq lc $_ } keys %$karma;
         if (@key_is_ambiguous) {
@@ -110,6 +139,13 @@ sub S_public {
 
         $value_change_callback->($storage_key);
         $new_karma = $karma->{$storage_key};
+
+        _karma_store_to_file($status_file);
+
+        $irc->yield(
+            notice => $channel,
+            "karma for <$original_key> is now $new_karma",
+        );
     };
 
     my $what = '';
@@ -123,7 +159,8 @@ sub S_public {
         $karma_change_callback->($what, sub { ($karma->{$_[0]} //= 0)-- });
     } elsif ( $text =~ $karma_stats_re ) {
         $what = $1;
-        warn "requesting karma stats for <@{[ $what // '(nothing/everything)' ]}>\n" if $channel_settings->{debug};
+        warn "requesting karma stats for <@{[ $what || '(nothing/everything)' ]}>\n" if $channel_settings->{debug};
+        _karma_load_from_file($status_file);
 
         if ( $what ){
             my $lc_what = lc $what;
@@ -166,17 +203,6 @@ sub S_public {
         }
     } else {
         return PCI_EAT_NONE;
-    }
-
-    if ( defined $new_karma ){
-        open my $fh, '>', $status_file;
-        print $fh Dumper( $karma );
-        $fh->close;
-
-        $irc->yield(
-            notice => $channel,
-            "karma for <$what> is now $new_karma",
-        );
     }
 
     return PCI_EAT_ALL;
