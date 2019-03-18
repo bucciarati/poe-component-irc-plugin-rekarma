@@ -175,6 +175,28 @@ sub S_public {
 
                 last;
             }
+
+            if ( !$karma_value && $what =~ qr{\A / (?<needle>[^/]+) / \z}ix ){
+                my $needle = $+{needle};
+                my $findings;
+                while ( my ($k, $v) = each %$karma ){
+                    next if index(lc $k, $needle) == -1;
+                    $findings->{$k} = $v;
+                    # warn "/$needle/ => <$k>:$v\n";
+                }
+
+                if ( keys %$findings ) {
+                    my @best_worst_keys = sort { abs $findings->{$b} <=> abs $findings->{$a} } keys %$findings;
+                    foreach my $k ( grep defined, @best_worst_keys[0..4] ){
+                        $karma_value = $findings->{$k};
+                        $irc->yield(
+                            notice => $channel,
+                            "karma for <$k> is $karma_value",
+                        );
+                    }
+                }
+            }
+
             if ( not defined $karma_value ){
                 $irc->yield(
                     notice => $channel,
