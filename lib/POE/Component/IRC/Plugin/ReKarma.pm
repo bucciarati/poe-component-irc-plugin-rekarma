@@ -175,7 +175,7 @@ sub S_public {
 
                 last;
             }
-            if ( !$karma_value ){
+            if ( not defined $karma_value ){
                 $irc->yield(
                     notice => $channel,
                     "there is no karma for <$what> yet!",
