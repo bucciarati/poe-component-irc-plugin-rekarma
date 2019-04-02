@@ -177,12 +177,12 @@ sub S_public {
             }
 
             if ( !$karma_value && $what =~ qr{\A / (?<needle>[^/]+) / \z}ix ){
-                my $needle = $+{needle};
+                my $lc_needle = lc $+{needle};
                 my $findings;
                 while ( my ($k, $v) = each %$karma ){
-                    next if index(lc $k, $needle) == -1;
+                    next if index(lc $k, $lc_needle) == -1;
                     $findings->{$k} = $v;
-                    # warn "/$needle/ => <$k>:$v\n";
+                    # warn "/$lc_needle/ => <$k>:$v\n";
                 }
 
                 if ( keys %$findings ) {
