@@ -45,6 +45,9 @@ use constant {
         \s*
         \z
     )xi,
+
+    # default to allowing one vote per hour, per user per item
+    KARMA_REPEAT_SECONDS_DEFAULT => 60 * 60,
 };
 
 sub new {
@@ -96,11 +99,12 @@ sub _karma_store_to_file {
     return;
 }
 
+my $last_per_item = {};
 sub S_public {
     my ($self, $irc) = (shift, shift);
 
-    my $nick = ${ +shift };
-    $nick =~ s/!.*$//;
+    my $sender = ${ +shift };
+    my ($nick, $mask) = split /!/, $sender, 2;
 
     my $my_own_nick = $irc->{nick};
 
@@ -109,6 +113,7 @@ sub S_public {
     (my $pathsafe_channel = $lc_channel) =~ s{/}{_}g;
     my $channel_settings = $self->{channel_settings}{$lc_channel};
 
+    my $repeat_seconds = $channel_settings->{repeat_seconds} // KARMA_REPEAT_SECONDS_DEFAULT;
     my $karma_increase_re = qr(@{[ $channel_settings->{karma_increase_re} // KARMA_INCREASE_RE_DEFAULT ]});
     my $karma_decrease_re = qr(@{[ $channel_settings->{karma_decrease_re} // KARMA_DECREASE_RE_DEFAULT ]});
     my $karma_stats_re    = qr(@{[ $channel_settings->{karma_stats_re}    // KARMA_STATS_RE_DEFAULT    ]});
@@ -126,6 +131,24 @@ sub S_public {
     my $karma_change_callback = sub {
         my ($original_key, $value_change_callback) = @_;
         my $normalized_key = lc $original_key;
+
+        foreach my $item_per_mask ( keys %{ $last_per_item->{$mask} // {} }){
+            my $seconds_since = time - $last_per_item->{$mask}{$item_per_mask};
+            if ( $seconds_since > $repeat_seconds ){
+                # cleanup old entries
+                delete $last_per_item->{$mask}{$item_per_mask};
+                next;
+            }
+
+            if ( $item_per_mask eq $normalized_key ){
+                # we are visiting the element currently being voted, and
+                # it hasn't been deleted, which means it's not old enough
+                # to allow another vote.
+                warn "Karming too soon ($mask -> $normalized_key) $seconds_since seconds ago\n";
+                return;
+            }
+        }
+        $last_per_item->{$mask}{$normalized_key} = time;
 
         _karma_load_from_file($status_file);
 
