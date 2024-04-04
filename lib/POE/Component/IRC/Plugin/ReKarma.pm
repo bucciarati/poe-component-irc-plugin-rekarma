@@ -99,7 +99,7 @@ sub _karma_store_to_file {
     return;
 }
 
-my $last_per_item = {};
+my $last_per_channel_item = {};
 sub S_public {
     my ($self, $irc) = (shift, shift);
 
@@ -132,11 +132,11 @@ sub S_public {
         my ($original_key, $value_change_callback) = @_;
         my $normalized_key = lc $original_key;
 
-        foreach my $item_per_mask ( keys %{ $last_per_item->{$mask} // {} }){
-            my $seconds_since = time - $last_per_item->{$mask}{$item_per_mask};
+        foreach my $item_per_mask ( keys %{ $last_per_channel_item->{$channel}{$mask} // {} }){
+            my $seconds_since = time - $last_per_channel_item->{$channel}{$mask}{$item_per_mask};
             if ( $seconds_since > $repeat_seconds ){
                 # cleanup old entries
-                delete $last_per_item->{$mask}{$item_per_mask};
+                delete $last_per_channel_item->{$channel}{$mask}{$item_per_mask};
                 next;
             }
 
@@ -148,7 +148,7 @@ sub S_public {
                 return;
             }
         }
-        $last_per_item->{$mask}{$normalized_key} = time;
+        $last_per_channel_item->{$channel}{$mask}{$normalized_key} = time;
 
         _karma_load_from_file($status_file);
 
